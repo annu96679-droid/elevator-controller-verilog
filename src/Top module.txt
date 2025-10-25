@@ -1,87 +1,27 @@
-//datapath 
-module elevator_datapath(
-    input clk, rst,
-    input move_up, move_down,
-    input open_door_cmd, close_door_cmd,
-    input emergency,
-    input [3:0] request_floor,
-    
-    output reg [3:0] current_floor,
-    output reg door_open,
-    output reg in_emergency,
-    output reg direction_up
+**Top Module**
+
+module elevator_top(
+    input clk, rst, emergency_button,
+    input [3:0] floor_request,
+    output [3:0] current_floor,
+    output door_open,
+    output in_emergency,
+    output moving_up,
+    output moving_down
 );
 
-    parameter FLOOR_1 = 4'b0001, FLOOR_2 = 4'b0010, FLOOR_3 = 4'b0100, FLOOR_4 = 4'b1000;  //one hot coding
+    wire move_up, move_down, open_door_cmd, close_door_cmd, direction_up;
     
-    // Floor register
-    always @(posedge clk or posedge rst)
-      begin
-        if (rst)
-          begin
-            current_floor <= FLOOR_1; // Start at floor 1 ---> ground floor
-            direction_up <= 1; // Default direction is up
-        end 
-         else if (emergency) 
-           begin
-            current_floor <= current_floor; // Hold position during emergency
-        end 
-           else if (move_up) 
-           begin
-            // Move up one floor
-            case (current_floor)
-                FLOOR_1: current_floor <= FLOOR_2;
-                FLOOR_2: current_floor <= FLOOR_3;
-                FLOOR_3: current_floor <= FLOOR_4;
-                FLOOR_4: current_floor <= FLOOR_4; // Already at top
-            endcase
-            direction_up <= 1;
-        end 
-          else if (move_down) 
-           begin
-            // Move down one floor
-            case (current_floor)
-                FLOOR_1: current_floor <= FLOOR_1; // Already at bottom
-                FLOOR_2: current_floor <= FLOOR_1;
-                FLOOR_3: current_floor <= FLOOR_2;
-                FLOOR_4: current_floor <= FLOOR_3;
-            endcase
-            direction_up <= 0;
-        end
-    end
-
-    // Door control
-    always @(posedge clk or posedge rst)
-     begin
-        if (rst) 
-        begin
-            door_open <= 0;
-        end 
-        else if (emergency)
-         begin
-            door_open <= 1; // Open door during emergency
-        end 
-        else if (open_door_cmd)
-         begin
-            door_open <= 1;
-        end
-         else if (close_door_cmd) 
-         begin
-            door_open <= 0;
-        end
-    end
-
-    // Emergency state
-    always @(posedge clk or posedge rst) 
-      begin
-        if (rst) 
-        begin
-            in_emergency <= 0;
-        end 
-        else 
-        begin
-            in_emergency <= emergency;
-        end
-    end
+    // Controller instance
+    elevator_controller controller(.clk(clk), .rst(rst), .emergency_button(emergency_button), .request_floor(floor_request), .current_floor(current_floor), .door_open(door_open), 
+    .direction_up(direction_up), .move_up(move_up), .move_down(move_down), .open_door_cmd(open_door_cmd), .close_door_cmd(close_door_cmd));
+    
+    // Datapath instance
+    elevator_datapath datapath(.clk(clk), .rst(rst), .move_up(move_up), .move_down(move_down), .open_door_cmd(open_door_cmd), .close_door_cmd(close_door_cmd),
+     .emergency(emergency_button), .request_floor(floor_request), .current_floor(current_floor), .door_open(door_open), .in_emergency(in_emergency), .direction_up(direction_up));
+    
+    assign moving_up = move_up;
+    assign moving_down = move_down;
 
 endmodule
+
