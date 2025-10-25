@@ -1,0 +1,145 @@
+module elevator_controller(
+    input clk, rst,
+    input emergency_button,
+    input [3:0] request_floor,
+    input [3:0] current_floor,
+    input door_open,
+    input direction_up,
+    output reg move_up,
+    output reg move_down,
+    output reg open_door_cmd,
+    output reg close_door_cmd
+);
+
+    // State definitions
+    parameter IDLE = 3'b000, WAIT = 3'b001, OPEN_UP = 3'b010, OPEN_DOWN = 3'b011, OPEN_DOOR = 3'b100, CLOSE_DOOR = 3'b101, EMERGENCY = 3'b110;
+
+    reg [2:0] current_state, next_state;
+    reg [3:0] target_floor;
+
+    // State register
+    always @(posedge clk or posedge rst) 
+      begin
+        if (rst) 
+         begin
+            current_state <= IDLE;
+            target_floor <= 4'b0001; // Default to floor 1
+        end 
+          else
+             begin
+            current_state <= next_state;
+            // Store the target floor when a request is made
+            if (request_floor != 0 && current_state == IDLE)
+               begin
+                target_floor <= request_floor;
+            end
+        end
+    end
+
+    // Next state logic
+    always @(*) 
+     begin
+        case (current_state)
+            IDLE: begin
+                if (emergency_button) 
+                    next_state = EMERGENCY;
+                else if (request_floor != 0) 
+                    next_state = WAIT;
+                else 
+                    next_state = IDLE;
+            end
+            
+            WAIT: begin
+                if (emergency_button) 
+                    next_state = EMERGENCY;
+                else if (target_floor > current_floor) 
+                    next_state = OPEN_UP;
+                else if (target_floor < current_floor) 
+                    next_state = OPEN_DOWN;
+                else if (target_floor == current_floor) 
+                    next_state = OPEN_DOOR;
+                else 
+                    next_state = WAIT;
+            end
+            
+            OPEN_UP: begin
+                if (emergency_button) 
+                    next_state = EMERGENCY;
+                else if (current_floor == target_floor) 
+                    next_state = OPEN_DOOR;
+                else 
+                    next_state = WAIT;
+            end
+            
+            OPEN_DOWN: begin
+                if (emergency_button) 
+                    next_state = EMERGENCY;
+                else if (current_floor == target_floor) 
+                    next_state = OPEN_DOOR;
+                else 
+                    next_state = WAIT;
+            end
+            
+            OPEN_DOOR: begin
+                if (emergency_button) 
+                    next_state = EMERGENCY;
+                else 
+                    next_state = CLOSE_DOOR;
+            end
+            
+            CLOSE_DOOR: begin
+                if (emergency_button) 
+                    next_state = EMERGENCY;
+                else 
+                    next_state = IDLE;
+            end
+            
+            EMERGENCY: begin
+                if (emergency_button) 
+                    next_state = EMERGENCY;
+                else 
+                    next_state = IDLE;
+            end
+            
+            default: next_state = IDLE;
+        endcase
+    end
+
+    // Output logic
+    always @(*)
+      begin
+        move_up = 0;
+        move_down = 0;
+        open_door_cmd = 0;
+        close_door_cmd = 0;
+        
+        case (current_state)
+            WAIT: begin
+                // No movement, just waiting
+            end
+            
+            OPEN_UP: begin
+                move_up = (current_floor != target_floor);
+                open_door_cmd = (current_floor == target_floor);
+            end
+            
+            OPEN_DOWN: begin
+                move_down = (current_floor != target_floor);
+                open_door_cmd = (current_floor == target_floor);
+            end
+            
+            OPEN_DOOR: begin
+                open_door_cmd = 1;
+            end
+            
+            CLOSE_DOOR: begin
+                close_door_cmd = 1;
+            end
+            
+            EMERGENCY: begin
+                open_door_cmd = 1; // Open door in emergency
+            end
+        endcase
+    end
+
+endmodule
