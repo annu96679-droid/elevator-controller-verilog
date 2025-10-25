@@ -1,0 +1,70 @@
+module elevator_tb;
+
+    reg clk, rst, emergency_button;
+    reg [3:0] floor_request;
+    wire [3:0] current_floor;
+    wire door_open, in_emergency, moving_up, moving_down;
+    
+    // Instantiate the elevator
+    elevator_top dut(.clk(clk), .rst(rst), .emergency_button(emergency_button), .floor_request(floor_request), .current_floor(current_floor), .door_open(door_open), .in_emergency(in_emergency), .moving_up(moving_up), .moving_down(moving_down));
+    
+    // Clock generation
+    initial
+    begin
+    clk = 0;
+    forever #5 clk = ~clk;
+    end
+    
+    // Test sequence
+    initial 
+    begin
+        // Initialize
+        clk = 0;
+        rst = 1;
+        emergency_button = 0;
+        floor_request = 4'b0000;
+        
+        // Reset the system
+        #10 rst = 0;
+        
+        // Test case 1: Request floor 3 from floor 1
+        #10 floor_request = 4'b0100; // Floor 3
+        #100; // Wait for elevator to move
+        
+        // Test case 2: Request floor 1 while at floor 3
+        #10 floor_request = 4'b0001; // Floor 1
+        #150; // Wait for elevator to move
+        
+        // Test case 3: Emergency button test
+        #10 emergency_button = 1;
+        #50;
+        #10 emergency_button = 0;
+        
+        // Test case 4: Request current floor (should open door)
+        #10 floor_request = 4'b0001; // Floor 1
+        #30;
+        
+        // Test case 5: Multiple requests
+        #10 floor_request = 4'b1000; // Floor 4
+        #100;
+        #10 floor_request = 4'b0010; // Floor 2 (should be ignored until reach floor 4)
+        #150;
+        
+        $finish;
+    end
+    
+    // Monitor
+    initial
+      begin
+        $monitor("time=%0t | clk = %b | rst = %b | emergency_button = %b | floor_request = %d || current_floor = %b | door_open = %b | in_emergency = %b | moving_up = %b | moving_down = %b", 
+                 $time, clk, rst, emergency_button, floor_request, current_floor, door_open, in_emergency, moving_up, moving_down);
+    end
+    
+    // VCD dump for waveform viewing
+    initial
+     begin
+        $dumpfile("elevator.vcd");
+        $dumpvars(0, elevator_tb);
+    end
+
+endmodule
